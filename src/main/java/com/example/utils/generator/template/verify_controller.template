@@ -1,0 +1,116 @@
+package com.example.controller;
+
+import com.example.common.Result;
+import com.example.entity.Verify;
+import com.example.service.VerifyService;
+import com.example.entity.User;
+import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import org.springframework.web.bind.annotation.*;
+import com.example.exception.CustomException;
+import cn.hutool.core.util.StrUtil;
+
+import javax.annotation.Resource;
+import javax.servlet.http.HttpServletRequest;
+
+@RestController
+@RequestMapping("/api/verify")
+public class VerifyController {
+    @Resource
+    private VerifyService verifyService;
+    @Resource
+    private HttpServletRequest request;
+
+    public User getUser() {
+        User user = (User) request.getSession().getAttribute("user");
+        if (user == null) {
+            throw new CustomException("-1", "请登录");
+        }
+        return user;
+    }
+
+    /**
+     * 发布新增
+     * @param verify
+     * @return
+     */
+    @PostMapping("/publish")
+    public Result<?> publishSave(@RequestBody Verify verify) {
+        User user = getUser();
+        verify.setPublishName(user.getUsername());
+        verify.setPublishId(user.getId());
+        verify.setParentId(0L);
+        return Result.success(verifyService.save(verify));
+    }
+
+    /**
+     * 预约新增
+     * @param verify
+     * @return
+     */
+    @PostMapping("/reserve")
+    public Result<?> reserveSave(@RequestBody Verify verify) {
+        User user = getUser();
+        verify.setReserveName(user.getUsername());
+        verify.setReserveId(user.getId());
+        verify.setParentId(verify.getId());
+        verify.setStatus("待审核");
+        verify.setId(null);
+        return Result.success(verifyService.save(verify));
+    }
+
+    @PutMapping
+    public Result<?> update(@RequestBody Verify verify) {
+        return Result.success(verifyService.updateById(verify));
+    }
+
+    @DeleteMapping("/{id}")
+    public Result<?> delete(@PathVariable Long id) {
+        verifyService.removeById(id);
+        return Result.success();
+    }
+
+    @GetMapping("/{id}")
+    public Result<?> findById(@PathVariable Long id) {
+        return Result.success(verifyService.getById(id));
+    }
+
+    @GetMapping
+    public Result<?> findAll() {
+        return Result.success(verifyService.list());
+    }
+
+    @GetMapping("/publish/page")
+    public Result<?> publishPage(@RequestParam(required = false, defaultValue = "") String name,
+                                                @RequestParam(required = false, defaultValue = "1") Integer pageNum,
+                                                @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
+        LambdaQueryWrapper<Verify> query = Wrappers.<Verify>lambdaQuery().eq(Verify::getParentId, 0).orderByDesc(Verify::getId);
+        if (StrUtil.isNotBlank(name)) {
+            query.like(Verify::getName, name);
+        }
+        return Result.success(verifyService.page(new Page<>(pageNum, pageSize), query));
+    }
+
+    @GetMapping("/reserve/page")
+    public Result<?> reservePage(@RequestParam(required = false, defaultValue = "") String name,
+                              @RequestParam(required = false, defaultValue = "1") Integer pageNum,
+                              @RequestParam(required = false, defaultValue = "10") Integer pageSize) {
+        User user = getUser();
+        LambdaQueryWrapper<Verify> query;
+        if (user.getRole().contains(1L)) {
+            query = Wrappers.<Verify>lambdaQuery().ne(Verify::getParentId, 0).orderByDesc(Verify::getId);
+        } else {
+            query = Wrappers.<Verify>lambdaQuery()
+                    .ne(Verify::getParentId, 0)
+                    .eq(Verify::getReserveId, user.getId())
+                    .eq(Verify::getReserveName, user.getUsername())
+                    .orderByDesc(Verify::getId);
+        }
+        if (StrUtil.isNotBlank(name)) {
+            query.like(Verify::getName, name);
+        }
+        return Result.success(verifyService.page(new Page<>(pageNum, pageSize), query));
+    }
+
+}

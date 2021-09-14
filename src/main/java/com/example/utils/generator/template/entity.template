@@ -1,0 +1,13 @@
+package com.example.entity;
+import com.baomidou.mybatisplus.annotation.TableName;
+import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.extension.activerecord.Model;
+import com.baomidou.mybatisplus.annotation.TableId;
+import java.util.Date;
+import java.math.BigDecimal;
+
+
+@TableName("{tableName}")
+public class {entityName} extends Model<{entityName}> {
+{body}
+}
